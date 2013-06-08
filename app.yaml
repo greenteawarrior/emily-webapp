@@ -12,4 +12,4 @@ libraries:
 
 handlers:
 - url: /.*
-  script: asciichan.app
+  script: main.app

@@ -32,8 +32,7 @@ months = ['January',
           'September',
           'October',
           'November',
-          'December']
-      
+          'December']  
 month_abbs = dict((m[:3].lower(), m) for m in months)
 
 def valid_month(month):
