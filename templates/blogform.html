@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <title>emily-webapp blog</title>
+    </head>
+
+    <body>
+        <h1>emily-webapp blog : make a new post!</h1>
+        <hr>
+
+        <form method="post">
+            <label>
+                <div>insert subject here!</div>
+                <textarea name="subject">{{subject}}</textarea>
+            </label>
+
+            <label>
+                <div>insert content here!</div>
+                <textarea name="content">{{content}}</textarea>
+            </label>
+
+            <div class="error">{{error}}</div>
+
+            <input type="submit">
+        </form>
+
+    </body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link type="text/css" rel="stylesheet" href="/static/blogmain.css"/>
+
+    <title>emily-webapp blog</title>
+</head>
+
+<body>
+    <a href="/blog" class="main-title">
+    emily-webapp blog!
+    </a>
+
+<div id="content">
+{% block content %}
+{% endblock %}
+</div>
+
+</body>
+
+</html>
+
+<!-- 
+other file setup:
+
+{% extends "blogbase.html" %}
+
+{% block content %}
+    
+    insert content such as
+    {% for p in posts %}
+        {{}} p.render() | safe (whether to include verbatim or escaped for symbols) }}
+    <br>
+    <br>
+    {% endfor %}
+{% endblock %}
+
+ -->
