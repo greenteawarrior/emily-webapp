@@ -249,10 +249,12 @@ class BlogNewEntry(Handler):
             self.render_blogform(subject, content, error)
 pages.append(('/blog/newpost', BlogNewEntry))
 
+
 class IndividualEntry(Handler):
     def get(self, e_id):
         entry = BlogEntry.get_by_id(int(e_id))
         self.render("blogindividualentry.html", {"entry":entry})
 pages.append(('/blog/(\d+)', IndividualEntry))
+
 
 app = webapp2.WSGIApplication(pages, debug=True)
