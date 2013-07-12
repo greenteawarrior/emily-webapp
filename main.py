@@ -314,6 +314,8 @@ class IndividualEntry(Handler):
         self.render("blogindividualentry.html", {"entry":entry})
 pages.append(('/blog/(\d+)', IndividualEntry))
 
+
+
 def hash_str(s):
     return hashlib.md5(s).hexdigest()
 
