@@ -5,10 +5,8 @@ emily-webapp
 
 built with the python SDK for google app engine!
 
-
-In the root folder, each python script can be run as its own (i.e.adjust the setting for scriptname.app in the .yaml file)
-
 main.py combines exercises/webpages so all of the projects/exercises can be accessed at once when you run the devserver.
 
 /templates contains the jinga2 templates for the emily-webapp.
 
+/pset 1,2,3 individual scripts contains individual scripts for those psets. each script can be run independently on the devserver if desired (change between scripts by editing app.yaml)
