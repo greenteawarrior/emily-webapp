@@ -6,10 +6,6 @@ import cgi
 from string import ascii_lowercase
 import re
 
-import birthday as bday
-import rot13 as r13
-import usersignup as usup
-
 pages = []
 
 jinja_environment = jinja2.Environment(autoescape=True,
@@ -34,6 +30,8 @@ class Handler(webapp2.RequestHandler):
         t = jinja_environment.get_template(template)
         self.response.out.write(t.render(paramdict))
 
+    def escape_html(self,s):
+        return cgi.escape(s, quote=True)
 
 class HelloPage(Handler):
     def get(self):
@@ -49,11 +47,48 @@ pages.append(('/jingatime', JingaPage))
 
 
 class BirthdayPage(Handler):
+
+    def valid_month(self, month):
+        months = ['January',
+                  'February',
+                  'March',
+                  'April',
+                  'May',
+                  'June',
+                  'July',
+                  'August',
+                  'September',
+                  'October',
+                  'November',
+                  'December']  
+        month_abbs = dict((m[:3].lower(), m) for m in months)
+        if month:
+            short_month = month[:3].lower()
+            return month_abbs.get(short_month)
+        else:
+            return None
+
+    def valid_day(self, day):
+        if day and day.isdigit():
+            day = int(day)
+            if day > 0 and day <= 31:
+                return day
+        else:
+            return None
+
+    def valid_year(self, year):
+        if year and year.isdigit():
+            year = int(year)
+            if year >= 1900 and year <= 2020:
+                return year
+        else:
+            return None
+    
     def write_form(self, error="", month="", day="", year=""):
         bdayparamdict = {"error": error,
-                     "month": bday.escape_html(month),
-                     "day": bday.escape_html(day),
-                     "year": bday.escape_html(year)}
+                     "month": self.escape_html(month),
+                     "day": self.escape_html(day),
+                     "year": self.escape_html(year)}
         self.render("bdayform.html", bdayparamdict)             
 
     def get(self):
@@ -64,9 +99,9 @@ class BirthdayPage(Handler):
         user_day = self.request.get('day')
         user_year = self.request.get('year')
 
-        month = bday.valid_month(user_month)
-        day = bday.valid_day(user_day)
-        year = bday.valid_year(user_year)
+        month = self.valid_month(user_month)
+        day = self.valid_day(user_day)
+        year = self.valid_year(user_year)
 
         if not (month and day and year):
             self.write_form("That doesn't look valid to me, friend.", 
@@ -74,7 +109,6 @@ class BirthdayPage(Handler):
         else:
             self.redirect("/birthday/thanks")
 pages.append(('/birthday', BirthdayPage))
-
 
 class BirthdayThanks(Handler):
     def get(self):
@@ -106,7 +140,7 @@ class rot13Page(Handler):
                     res += uppercases[cindex+13-26]                
             else:
                 res += c
-        return r13.escape_html(res)
+        return self.escape_html(res)
 
     def get(self):
         self.write_form()
@@ -118,8 +152,26 @@ class rot13Page(Handler):
 pages.append(('/rot13', rot13Page))
 
 
-# usersignup
+# usersignup, pset2 and 4
 class UserSignUp(Handler):
+    def valid_username(self, username):
+        USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+        return USER_RE.match(username)
+
+    def valid_password(self, password):
+        PASSWORD_RE = re.compile(r"^.{3,20}$")
+        return PASSWORD_RE.match(password)
+
+    def valid_verify(self, password, verify):
+        if password == verify:
+            return True
+        else:
+            return None
+
+    def valid_email(self, email):
+        EMAIL_RE = re.compile(r"^[\S]+@[\S]+\.[\S]+$")
+        return EMAIL_RE.match(email)
+
     def write_form(self, errors, username="", 
                          password="", 
                          verify="", 
@@ -146,10 +198,10 @@ class UserSignUp(Handler):
         input_verify = self.request.get("verify")
         input_email = self.request.get("email")
 
-        username = usup.valid_username(input_username)
-        password = usup.valid_password(input_password)
-        verify = usup.valid_verify(input_password, input_verify)
-        email =  usup.valid_email(input_email)
+        username = self.valid_username(input_username)
+        password = self.valid_password(input_password)
+        verify = self.valid_verify(input_password, input_verify)
+        email =  self.valid_email(input_email)
 
         errors = ["", "", "", ""]
 
@@ -164,14 +216,18 @@ class UserSignUp(Handler):
         
         if errors != ["", "", "", ""]:
             self.write_form(errors, input_username, "", "", input_email)
-        else:
+        else:  
             self.redirect("/usersignup/welcome?username=" + input_username) 
 pages.append(('/usersignup', UserSignUp))
 
 class UserWelcome(Handler): 
+    def valid_username(self, username):
+        USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+        return USER_RE.match(username)
+
     def get(self):
         username = self.request.get("username")
-        if usup.valid_username(username):
+        if self.valid_username(username):
             self.write("Welcome, %s!" % username)
         else:
             self.redirect("/user-signup")
