@@ -6,13 +6,6 @@ import string
 import hashlib
 import hmac
 
-# SECRET = 'imsosecret'
-# def hmac_hash_str(s): 
-#     return hmac.new(SECRET, s).hexdigest()
-
-# def make_secure_val(s):
-#     return "%s|%s" % (s, hmac_hash_str(s))
-
 def check_secure_val(h):
     #h is a string of the format "str|hashedstr"
     split = h.split("|")
