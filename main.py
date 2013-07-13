@@ -7,6 +7,7 @@ from string import ascii_lowercase
 import re
 import hashlib
 import hmac
+import unit4_functions as u4
 
 pages = []
 
@@ -14,6 +15,7 @@ jinja_environment = jinja2.Environment(autoescape=True,
     loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), 
            'templates')))
 
+secret = "pewpewpew"
 
 class Handler(webapp2.RequestHandler):
     def write(self, writeme):
@@ -34,6 +36,27 @@ class Handler(webapp2.RequestHandler):
 
     def escape_html(self,s):
         return cgi.escape(s, quote=True)
+
+    def set_secure_cookie(self, name, cookie_val):
+        self.response.headers.add_header(
+            'Set-Cookie',
+            '%s=%s; Path=/' % (name, cookie_val))
+
+    def read_secure_cookie(self, name):
+        cookie_val = self.request.cookies.get(name)
+        if cookie_val and u4.check_secure_val(cookie_val, secret):
+            return cookie_val
+
+    def login(self, user):
+        self.set_secure_cookie('user_id', str(user.key().id()))
+
+    def logout(self):
+        self.response.headers.add_header('Set-Cookie', 'user_id=; Path=/')
+
+    # def initialize(self, *a, **kw):
+    #     webapp2.RequestHandler.initialize(self, *a, **kw)
+    #     uid = self.read_secure_cookie('user_id')
+    #     self.user = uid and User.by_id(int(uid))
 
 class HelloPage(Handler):
     def get(self):
@@ -155,25 +178,12 @@ pages.append(('/rot13', rot13Page))
 
 
 # usersignup, pset2 and 4
+class User(db.Model):
+    username = db.StringProperty(required = True)
+    hashed_pw = db.StringProperty(required = True)
+    email = db.StringProperty()
+
 class UserSignUp(Handler):
-    def valid_username(self, username):
-        USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
-        return USER_RE.match(username)
-
-    def valid_password(self, password):
-        PASSWORD_RE = re.compile(r"^.{3,20}$")
-        return PASSWORD_RE.match(password)
-
-    def valid_verify(self, password, verify):
-        if password == verify:
-            return True
-        else:
-            return None
-
-    def valid_email(self, email):
-        EMAIL_RE = re.compile(r"^[\S]+@[\S]+\.[\S]+$")
-        return EMAIL_RE.match(email)
-
     def write_form(self, errors, username="", 
                          password="", 
                          verify="", 
@@ -200,10 +210,10 @@ class UserSignUp(Handler):
         input_verify = self.request.get("verify")
         input_email = self.request.get("email")
 
-        username = self.valid_username(input_username)
-        password = self.valid_password(input_password)
-        verify = self.valid_verify(input_password, input_verify)
-        email =  self.valid_email(input_email)
+        username = u4.valid_username(input_username)
+        password = u4.valid_password(input_password)
+        verify = u4.valid_verify(input_password, input_verify)
+        email =  u4.valid_email(input_email)
 
         errors = ["", "", "", ""]
 
@@ -219,22 +229,41 @@ class UserSignUp(Handler):
         if errors != ["", "", "", ""]:
             self.write_form(errors, input_username, "", "", input_email)
         else:  
-            self.redirect("/usersignup/welcome?username=" + input_username) 
-pages.append(('/usersignup', UserSignUp))
+            #pset 2 style
+            #self.redirect("/usersignup/welcome_pset2style?username=" + input_username) 
 
-class UserWelcome(Handler): 
-    def valid_username(self, username):
-        USER_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
-        return USER_RE.match(username)
+            #pset 4 style
+            user_existence = User.all().filter('name =', input_username).get()
+            if user_existence:
+                errors[0] = "That user already exists."
+                self.write_form(errors, input_username, "", "", input_email)
+            else:
+                hashed_pw = u4.make_pw_hash(str(input_username), str(input_password))
+                u= User(username=str(input_username), hashed_pw=hashed_pw, email=str(input_email))
+                u.put()
+                self.set_secure_cookie('username', u4.make_secure_val(str(input_username), secret))
+                self.redirect("/signup/welcome")
 
-    def get(self):
+pages.append(('/signup', UserSignUp))
+
+class UserWelcome_pset2style(Handler): 
+    def get(self): 
         username = self.request.get("username")
-        if self.valid_username(username):
+        if u4.valid_username(username):
             self.write("Welcome, %s!" % username)
         else:
-            self.redirect("/user-signup")
-pages.append(('/usersignup/welcome', UserWelcome))
+            self.redirect("/signup")
+pages.append(('/signup/welcome_pset2style', UserWelcome_pset2style))
 
+class UserWelcome_pset4style(Handler):
+    def get(self):
+        validate_username_cookie = self.read_secure_cookie('username')
+        username = validate_username_cookie.split("|")[0]
+        if u4.valid_username(username):
+            self.write("Welcome, %s!" % username)
+        else:
+            self.redirect("/signup")
+pages.append(('/signup/welcome', UserWelcome_pset4style))
 
 class Art(db.Model):
     "Database entity: the ascii art submission from the user."
@@ -314,17 +343,18 @@ class IndividualEntry(Handler):
         self.render("blogindividualentry.html", {"entry":entry})
 pages.append(('/blog/(\d+)', IndividualEntry))
 
+
 class CookieVisitPage(Handler):
     def get(self):
         self.response.headers['Content-Type'] = 'text/plain'
         visits = 0
         visit_cookie_str = self.request.cookies.get('visits')
         if visit_cookie_str:
-            cookie_val = check_secure_val(visit_cookie_str)
+            cookie_val = u4.check_secure_val(visit_cookie_str, secret)
             if cookie_val:
                 visits = int(cookie_val)
         visits += 1
-        new_cookie_val = make_secure_val(str(visits))
+        new_cookie_val = u4.make_secure_val(str(visits), secret)
         self.response.headers.add_header('Set-Cookie', 'visits=%s' % new_cookie_val)
         if visits > 10000:
             self.write("You are the best ever!")
@@ -333,3 +363,5 @@ class CookieVisitPage(Handler):
 pages.append(('/cookies', CookieVisitPage))
 
 app = webapp2.WSGIApplication(pages, debug=True)
+
+
