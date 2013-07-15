@@ -47,8 +47,8 @@ class Handler(webapp2.RequestHandler):
         if cookie_val and u4.check_secure_val(cookie_val, secret):
             return cookie_val
 
-    def login(self, user):
-        self.set_secure_cookie('user_id', str(user.key().id()))
+    def login(self, username, secret):
+        self.set_secure_cookie('username', u4.make_secure_val(username, secret))
 
     def logout(self):
         self.response.headers.add_header('Set-Cookie', 'user_id=; Path=/')
@@ -72,7 +72,6 @@ pages.append(('/jingatime', JingaPage))
 
 
 class BirthdayPage(Handler):
-
     def valid_month(self, month):
         months = ['January',
                   'February',
@@ -177,6 +176,37 @@ class rot13Page(Handler):
 pages.append(('/rot13', rot13Page))
 
 
+class Art(db.Model):
+    "Database entity: the ascii art submission from the user."
+    title = db.StringProperty(required = True)
+    art = db.TextProperty(required = True)
+    created = db.DateTimeProperty(auto_now_add = True)
+
+class AsciiMainPage(Handler):
+    def render_front(self, title="", art="", error=""):
+        arts = db.GqlQuery("SELECT * FROM Art "
+                           "ORDER BY created DESC ") #run a query
+        self.render("front.html", {"title":title, 
+                                   "art": art, 
+                                   "error":error, 
+                                   "arts":arts})
+
+    def get(self):
+        self.render_front()
+
+    def post(self):
+        title = self.request.get("title")
+        art = self.request.get("art")
+        if title and art:
+            a = Art(title=title, art=art)
+            a.put()
+            self.redirect("/")
+        else:
+            error = "We need both a title and some artwork!"
+            self.render_front(title, art, error)
+pages.append(('/asciichan', AsciiMainPage))
+
+
 # usersignup, pset2 and 4
 class User(db.Model):
     username = db.StringProperty(required = True)
@@ -210,20 +240,20 @@ class UserSignUp(Handler):
         input_verify = self.request.get("verify")
         input_email = self.request.get("email")
 
-        username = u4.valid_username(input_username)
-        password = u4.valid_password(input_password)
-        verify = u4.valid_verify(input_password, input_verify)
-        email =  u4.valid_email(input_email)
+        valid_username = u4.valid_username(input_username)
+        valid_password = u4.valid_password(input_password)
+        valid_verify = u4.valid_verify(input_password, input_verify)
+        valid_email =  u4.valid_email(input_email)
 
         errors = ["", "", "", ""]
 
-        if not username:
+        if not valid_username:
             errors[0] = "That's not a valid username."
-        if not password:
+        if not valid_password:
             errors[1] = "That wasn't a valid password."
-        if not verify:
+        if not valid_verify:
             errors[2] = "Your passwords didn't match."
-        if not email and input_email != "":
+        if not valid_email and input_email != "":
             errors[3] = "That's not a valid email."
         
         if errors != ["", "", "", ""]:
@@ -233,7 +263,7 @@ class UserSignUp(Handler):
             #self.redirect("/usersignup/welcome_pset2style?username=" + input_username) 
 
             #pset 4 style
-            user_existence = User.all().filter('name =', input_username).get()
+            user_existence = User.all().filter('username =', input_username).get()
             if user_existence:
                 errors[0] = "That user already exists."
                 self.write_form(errors, input_username, "", "", input_email)
@@ -241,8 +271,9 @@ class UserSignUp(Handler):
                 hashed_pw = u4.make_pw_hash(str(input_username), str(input_password))
                 u= User(username=str(input_username), hashed_pw=hashed_pw, email=str(input_email))
                 u.put()
-                self.set_secure_cookie('username', u4.make_secure_val(str(input_username), secret))
-                self.redirect("/signup/welcome")
+                #self.set_secure_cookie('username', u4.make_secure_val(str(input_username), secret))
+                self.login(username=str(input_username), secret=secret)
+                self.redirect("/welcome")
 
 pages.append(('/signup', UserSignUp))
 
@@ -263,39 +294,35 @@ class UserWelcome_pset4style(Handler):
             self.write("Welcome, %s!" % username)
         else:
             self.redirect("/signup")
-pages.append(('/signup/welcome', UserWelcome_pset4style))
+pages.append(('/welcome', UserWelcome_pset4style))
 
-class Art(db.Model):
-    "Database entity: the ascii art submission from the user."
-    title = db.StringProperty(required = True)
-    art = db.TextProperty(required = True)
-    created = db.DateTimeProperty(auto_now_add = True)
-
-
-class AsciiMainPage(Handler):
-    def render_front(self, title="", art="", error=""):
-        arts = db.GqlQuery("SELECT * FROM Art "
-                           "ORDER BY created DESC ") #run a query
-        self.render("front.html", {"title":title, 
-                                   "art": art, 
-                                   "error":error, 
-                                   "arts":arts})
+class UserLogin(Handler):
+    def write_form(self, loginerror="", username="", password=""):
+        self.render('bloglogin.html', {"username":username,
+                                        "password":password,
+                                        "loginerror":loginerror})
 
     def get(self):
-        self.render_front()
+        self.write_form()
 
     def post(self):
-        title = self.request.get("title")
-        art = self.request.get("art")
-        if title and art:
-            a = Art(title=title, art=art)
-            a.put()
-            self.redirect("/")
-        else:
-            error = "We need both a title and some artwork!"
-            self.render_front(title, art, error)
-pages.append(('/asciichan', AsciiMainPage))
+        login_input_username = self.request.get("username")
+        login_input_pw = self.request.get("password")
 
+        u = User.all().filter('username =', login_input_username).get()
+        if u: 
+            hashed_pw = u.hashed_pw
+            if u4.valid_pw(login_input_username, login_input_pw, hashed_pw):
+                self.login(username=str(login_input_username), secret=secret)
+                self.redirect("/welcome")
+            else:
+                loginerror = "Invalid username and password combination."
+                self.write_form(loginerror=loginerror, username=login_input_username)
+        else:
+            loginerror = "Username does not exist in database."
+            self.write_form(loginerror=loginerror)
+
+pages.append(('/login', UserLogin))
 
 class BlogEntry(db.Model):
     "Database entity: blog posts written and submitted by users."
