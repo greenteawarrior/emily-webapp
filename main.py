@@ -51,7 +51,7 @@ class Handler(webapp2.RequestHandler):
         self.set_secure_cookie('username', u4.make_secure_val(username, secret))
 
     def logout(self):
-        self.response.headers.add_header('Set-Cookie', 'user_id=; Path=/')
+        self.response.headers.add_header('Set-Cookie', 'username=; Path=/')
 
     # def initialize(self, *a, **kw):
     #     webapp2.RequestHandler.initialize(self, *a, **kw)
@@ -232,6 +232,9 @@ class UserSignUp(Handler):
                                         "email_error": email_error})
     
     def get(self):
+        #Maybe add an error - if you're already logged in, 
+        #raise an error message and ask the user if s/he 
+        #would like to logout before proceeding.
         self.write_form(["", "", "", ""])
 
     def post(self):
@@ -271,7 +274,6 @@ class UserSignUp(Handler):
                 hashed_pw = u4.make_pw_hash(str(input_username), str(input_password))
                 u= User(username=str(input_username), hashed_pw=hashed_pw, email=str(input_email))
                 u.put()
-                #self.set_secure_cookie('username', u4.make_secure_val(str(input_username), secret))
                 self.login(username=str(input_username), secret=secret)
                 self.redirect("/welcome")
 
@@ -321,8 +323,13 @@ class UserLogin(Handler):
         else:
             loginerror = "Username does not exist in database."
             self.write_form(loginerror=loginerror)
-
 pages.append(('/login', UserLogin))
+
+class UserLogout(Handler):
+    def get(self):
+        self.logout()
+        self.redirect('/signup')
+pages.append(('/logout', UserLogout))
 
 class BlogEntry(db.Model):
     "Database entity: blog posts written and submitted by users."
