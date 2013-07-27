@@ -8,6 +8,9 @@ import re
 import hashlib
 import hmac
 import unit4_functions as u4
+import urllib2
+from xml.dom import minidom
+import json
 
 pages = []
 
@@ -181,17 +184,69 @@ class Art(db.Model):
     title = db.StringProperty(required = True)
     art = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
+    coords = db.GeoPtProperty()
+
+IP_URL = "http://api.hostip.info/?ip="
+
+def get_coordinates(ip):
+    ip = "4.2.2.2" #this is a name server that helps resolve DNS names into IP's
+    url = IP_URL + ip
+    content = None
+    try:
+        content = urllib2.urlopen(url).read()
+    except URLError:
+        return
+
+    if content:
+        #parse the XML and find the coordinates
+        x = minidom.parseString(content)
+        coords_in_xml= x.getElementsByTagName("gml:coordinates")
+        if coords_in_xml and coords_in_xml[0].childNodes[0].nodeValue:
+            coordslist = coords_in_xml[0].childNodes[0].nodeValue.split(',')
+            lon = coordslist[0]
+            lat = coordslist[1]
+            return db.GeoPt(lat, lon) #google app engine datatype for locations        
+
+
+def gmaps_img(points):
+    GMAPS_URL = "http://maps.googleapis.com/maps/api/staticmap?size=380x263&sensor=false&"
+    markerstr = ""
+    for p in points:
+        markerstr += "markers=%s,%s&" % (p.lat, p.lon)
+    markerstr = markerstr[:-1] #get rid of the very last ampersand
+    return GMAPS_URL + markerstr
 
 class AsciiMainPage(Handler):
     def render_front(self, title="", art="", error=""):
         arts = db.GqlQuery("SELECT * FROM Art "
-                           "ORDER BY created DESC ") #run a query
+                           "ORDER BY created DESC LIMIT 10 ") #run a query
+        
+        #prevent the running of multiple queries
+        arts = list(arts)
+
+        # find which arts have coords
+        coordpoints  = []
+        for a in arts:
+            if a.coords:
+                coordpoints.append(a.coords)
+        # also same code but more succinct: points = filter(None, (a.coords for a in arts))
+        
+        # if we have any arts coords, make an image url
+        img_url = None
+        if coordpoints:
+            img_url = gmaps_img(coordpoints)
+
         self.render("front.html", {"title":title, 
                                    "art": art, 
                                    "error":error, 
-                                   "arts":arts})
+                                   "arts":arts,
+                                   "img_url":img_url})
+
 
     def get(self):
+        # debugging location functionality
+        # self.write(self.request.remote_addr)
+        # self.write(repr(get_coordinates(self.request.remote_addr)))
         self.render_front()
 
     def post(self):
@@ -199,8 +254,13 @@ class AsciiMainPage(Handler):
         art = self.request.get("art")
         if title and art:
             a = Art(title=title, art=art)
+            #look up the user's coordinates from their IP
+            coords = get_coordinates(self.request.remote_addr)
+            #if we have coordinates, add them to the Art
+            if coords:
+                a.coords = coords
             a.put()
-            self.redirect("/")
+            self.redirect("/asciichan")
         else:
             error = "We need both a title and some artwork!"
             self.render_front(title, art, error)
@@ -275,9 +335,9 @@ class UserSignUp(Handler):
                 u= User(username=str(input_username), hashed_pw=hashed_pw, email=str(input_email))
                 u.put()
                 self.login(username=str(input_username), secret=secret)
-                self.redirect("/welcome")
+                self.redirect("/blog/welcome")
 
-pages.append(('/signup', UserSignUp))
+pages.append(('/blog/signup', UserSignUp))
 
 class UserWelcome_pset2style(Handler): 
     def get(self): 
@@ -285,8 +345,8 @@ class UserWelcome_pset2style(Handler):
         if u4.valid_username(username):
             self.write("Welcome, %s!" % username)
         else:
-            self.redirect("/signup")
-pages.append(('/signup/welcome_pset2style', UserWelcome_pset2style))
+            self.redirect("/blog/signup")
+pages.append(('/blog/signup/welcome_pset2style', UserWelcome_pset2style))
 
 class UserWelcome_pset4style(Handler):
     def get(self):
@@ -295,8 +355,8 @@ class UserWelcome_pset4style(Handler):
         if u4.valid_username(username):
             self.write("Welcome, %s!" % username)
         else:
-            self.redirect("/signup")
-pages.append(('/welcome', UserWelcome_pset4style))
+            self.redirect("/blog/signup")
+pages.append(('/blog/welcome', UserWelcome_pset4style))
 
 class UserLogin(Handler):
     def write_form(self, loginerror="", username="", password=""):
@@ -316,20 +376,20 @@ class UserLogin(Handler):
             hashed_pw = u.hashed_pw
             if u4.valid_pw(login_input_username, login_input_pw, hashed_pw):
                 self.login(username=str(login_input_username), secret=secret)
-                self.redirect("/welcome")
+                self.redirect("/blog/welcome")
             else:
                 loginerror = "Invalid username and password combination."
                 self.write_form(loginerror=loginerror, username=login_input_username)
         else:
             loginerror = "Username does not exist in database."
             self.write_form(loginerror=loginerror)
-pages.append(('/login', UserLogin))
+pages.append(('/blog/login', UserLogin))
 
 class UserLogout(Handler):
     def get(self):
         self.logout()
-        self.redirect('/signup')
-pages.append(('/logout', UserLogout))
+        self.redirect('/blog/signup')
+pages.append(('/blog/logout', UserLogout))
 
 class BlogEntry(db.Model):
     "Database entity: blog posts written and submitted by users."
@@ -347,6 +407,13 @@ class BlogMainPage(Handler):
         self.render_blogfront()
 pages.append(('/blog', BlogMainPage))
 
+class BlogMainPagejson(Handler):
+    def get(self):
+        p = urllib2.urlopen('http://emily-webapp.appspot.com/blog')
+        pstr = p.read()
+        pjson = json.dumps(pstr)
+        self.write(str(pjson))
+pages.append(('/blog/.json', BlogMainPagejson))
 
 class BlogNewEntry(Handler):
     def render_blogform(self, subject="", content="", error=""):
@@ -397,5 +464,3 @@ class CookieVisitPage(Handler):
 pages.append(('/cookies', CookieVisitPage))
 
 app = webapp2.WSGIApplication(pages, debug=True)
-
-
