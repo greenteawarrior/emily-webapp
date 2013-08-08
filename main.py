@@ -37,6 +37,11 @@ class Handler(webapp2.RequestHandler):
         t = jinja_environment.get_template(template)
         self.response.out.write(t.render(paramdict))
 
+    def jsonrender(self, entrydict):
+        json_text = json.dumps(entrydict)
+        self.response.headers['Content-Type'] = 'application/json; charset = UTF-8'
+        self.write(json_text)
+
     def escape_html(self,s):
         return cgi.escape(s, quote=True)
 
@@ -60,6 +65,13 @@ class Handler(webapp2.RequestHandler):
     #     webapp2.RequestHandler.initialize(self, *a, **kw)
     #     uid = self.read_secure_cookie('user_id')
     #     self.user = uid and User.by_id(int(uid))
+
+    def which_format(self):
+        if self.request.url.endswith('.json'):
+            format = '.json'
+        else:
+            format = 'html'
+        return format
 
 class HelloPage(Handler):
     def get(self):
@@ -397,23 +409,34 @@ class BlogEntry(db.Model):
     content = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
 
+    def entry_dict(self):
+        #this dictionary will be converted into JSON
+        time_fmt = '%c'
+        d = {'subject': self.subject,
+             'content': self.content,
+             'created': self.created.strftime(time_fmt)}
+        return d
+
 
 class BlogMainPage(Handler):
     def render_blogfront(self):
         entries = db.GqlQuery("SELECT * FROM BlogEntry ORDER BY created DESC")
-        self.render('blogfront.html', {'entries':entries})
-    
+        if self.which_format() == 'html':
+            self.render('blogfront.html', {'entries':entries})
+        elif self.which_format() == '.json':
+            return self.jsonrender([e.entry_dict() for e in entries])
+
     def get(self):
         self.render_blogfront()
-pages.append(('/blog', BlogMainPage))
+pages.append(('/blog/?(?:\.json)?', BlogMainPage))
 
-class BlogMainPagejson(Handler):
-    def get(self):
-        p = urllib2.urlopen('http://emily-webapp.appspot.com/blog')
-        pstr = p.read()
-        pjson = json.dumps(pstr)
-        self.write(str(pjson))
-pages.append(('/blog/.json', BlogMainPagejson))
+# class BlogMainPagejson(Handler):
+#     # def get(self):
+#     #     p = urllib2.urlopen('http://emily-webapp.appspot.com/blog')
+#     #     pstr = p.read()
+#     #     pjson = json.dumps(pstr)
+#     #     self.write(str(pjson))
+# pages.append(('/blog/.json', BlogMainPagejson))
 
 class BlogNewEntry(Handler):
     def render_blogform(self, subject="", content="", error=""):
@@ -441,8 +464,14 @@ pages.append(('/blog/newpost', BlogNewEntry))
 class IndividualEntry(Handler):
     def get(self, e_id):
         entry = BlogEntry.get_by_id(int(e_id))
-        self.render("blogindividualentry.html", {"entry":entry})
-pages.append(('/blog/(\d+)', IndividualEntry))
+        if not entry:
+            self.error(404)
+            return
+        if self.which_format() == 'html':
+            self.render("blogindividualentry.html", {"entry":entry})
+        elif self.which_format() == '.json':
+            self.jsonrender(entry.entry_dict())
+pages.append(('/blog/(\d+)(?:\.json)?', IndividualEntry))
 
 
 class CookieVisitPage(Handler):
