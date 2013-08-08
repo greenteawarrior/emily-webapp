@@ -11,6 +11,7 @@ import unit4_functions as u4
 import urllib2
 from xml.dom import minidom
 import json
+import logging
 
 pages = []
 
@@ -201,7 +202,7 @@ class Art(db.Model):
 IP_URL = "http://api.hostip.info/?ip="
 
 def get_coordinates(ip):
-    ip = "4.2.2.2" #this is a name server that helps resolve DNS names into IP's
+    #ip = "4.2.2.2" #this is a name server that helps resolve DNS names into IP's
     url = IP_URL + ip
     content = None
     try:
@@ -228,13 +229,24 @@ def gmaps_img(points):
     markerstr = markerstr[:-1] #get rid of the very last ampersand
     return GMAPS_URL + markerstr
 
-class AsciiMainPage(Handler):
-    def render_front(self, title="", art="", error=""):
+CACHE = {}
+def top_arts():
+    key = 'top'
+    if key in CACHE:
+        arts = CACHE[key]
+    else:
+        logging.error("DB QUERY")
         arts = db.GqlQuery("SELECT * FROM Art "
                            "ORDER BY created DESC LIMIT 10 ") #run a query
-        
         #prevent the running of multiple queries
         arts = list(arts)
+        CACHE[key] = arts
+    return arts
+ 
+
+class AsciiMainPage(Handler):
+    def render_front(self, title="", art="", error=""):
+        arts = top_arts()
 
         # find which arts have coords
         coordpoints  = []
@@ -272,6 +284,7 @@ class AsciiMainPage(Handler):
             if coords:
                 a.coords = coords
             a.put()
+            CACHE.clear()
             self.redirect("/asciichan")
         else:
             error = "We need both a title and some artwork!"
@@ -430,14 +443,6 @@ class BlogMainPage(Handler):
         self.render_blogfront()
 pages.append(('/blog/?(?:\.json)?', BlogMainPage))
 
-# class BlogMainPagejson(Handler):
-#     # def get(self):
-#     #     p = urllib2.urlopen('http://emily-webapp.appspot.com/blog')
-#     #     pstr = p.read()
-#     #     pjson = json.dumps(pstr)
-#     #     self.write(str(pjson))
-# pages.append(('/blog/.json', BlogMainPagejson))
-
 class BlogNewEntry(Handler):
     def render_blogform(self, subject="", content="", error=""):
         self.render("blogform.html", {"subjectstr":subject, 
@@ -490,6 +495,6 @@ class CookieVisitPage(Handler):
             self.write("You are the best ever!")
         else:
             self.write("You've been here %s times!" % visits)
-pages.append(('/cookies', CookieVisitPage))
+pages.append(('/cookies/?', CookieVisitPage))
 
 app = webapp2.WSGIApplication(pages, debug=True)
