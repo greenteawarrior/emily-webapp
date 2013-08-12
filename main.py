@@ -431,7 +431,6 @@ class BlogEntry(db.Model):
 def home_blogposts(update=False):
     key = 'blog-home'
     entries = memcache.get(key)
-    blog_query_time = memcache.get('most_recent_query_time')
     if entries is None or update:
         blog_query_time = time.time()
         memcache.set('most_recent_query_time', blog_query_time)
@@ -447,7 +446,7 @@ class BlogMainPage(Handler):
         blog_query_time = memcache.get('most_recent_query_time')
         if blog_query_time == None:
             blog_query_time = 0
-        query_sec_ago = time.time()-blog_query_time
+        query_sec_ago = time.time() - blog_query_time
         if self.which_format() == 'html':
             self.render('blogfront.html', {'entries':entries, 'query_sec_ago':query_sec_ago})
         elif self.which_format() == '.json':
@@ -481,19 +480,39 @@ class BlogNewEntry(BlogMainPage):
             self.render_blogform(subject, content, error)
 pages.append(('/blog/newpost', BlogNewEntry))
 
+def get_entry_from_cache(e_id):
+    key = str(e_id)
+    entry = memcache.get(key)
+    if entry is None:
+        entry_query_time = time.time()
+        memcache.set(key+" query_time", entry_query_time)
+        logging.error(key+" QUERY (INDIVIDUAL BLOG POST)")
+        entry = BlogEntry.get_by_id(e_id)
+        memcache.set(key, entry)
+    return entry
 
 class IndividualEntry(Handler):
     def get(self, e_id):
-        entry = BlogEntry.get_by_id(int(e_id))
+        e_id = int(e_id)
+        entry = get_entry_from_cache(e_id)
+        entry_query_time = memcache.get(str(e_id) + " query_time")
+        if entry_query_time == None:
+            entry_query_time = 0
+        indiv_entry_query_sec_ago = time.time() - entry_query_time
         if not entry:
             self.error(404)
             return
         if self.which_format() == 'html':
-            self.render("blogindividualentry.html", {"entry":entry})
+            self.render("blogindividualentry.html", {"entry":entry, "indiv_entry_query_sec_ago": indiv_entry_query_sec_ago})
         elif self.which_format() == '.json':
             self.jsonrender(entry.entry_dict())
 pages.append(('/blog/(\d+)(?:\.json)?', IndividualEntry))
 
+class BlogCacheFlush(Handler):
+    def get(self):
+        memcache.flush_all()
+        self.redirect("/blog")
+pages.append(('/blog/flush', BlogCacheFlush))
 
 class CookieVisitPage(Handler):
     def get(self):
