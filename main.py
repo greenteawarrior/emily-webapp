@@ -12,6 +12,8 @@ import urllib2
 from xml.dom import minidom
 import json
 import logging
+from google.appengine.api import memcache
+import time
 
 pages = []
 
@@ -61,11 +63,6 @@ class Handler(webapp2.RequestHandler):
 
     def logout(self):
         self.response.headers.add_header('Set-Cookie', 'username=; Path=/')
-
-    # def initialize(self, *a, **kw):
-    #     webapp2.RequestHandler.initialize(self, *a, **kw)
-    #     uid = self.read_secure_cookie('user_id')
-    #     self.user = uid and User.by_id(int(uid))
 
     def which_format(self):
         if self.request.url.endswith('.json'):
@@ -229,18 +226,16 @@ def gmaps_img(points):
     markerstr = markerstr[:-1] #get rid of the very last ampersand
     return GMAPS_URL + markerstr
 
-CACHE = {}
 def top_arts(update = False):
     key = 'top'
-    if not update and key in CACHE:
-        arts = CACHE[key]
-    else:
+    arts = memcache.get(key)
+    if arts is None or update:
         logging.error("DB QUERY")
         arts = db.GqlQuery("SELECT * FROM Art "
                            "ORDER BY created DESC LIMIT 10 ") #run a query
         #prevent the running of multiple queries
         arts = list(arts)
-        CACHE[key] = arts
+        memcache.set(key, arts)
     return arts
  
 
@@ -274,7 +269,7 @@ class AsciiMainPage(Handler):
         self.render_front()
 
     def post(self):
-        title = self.request.get("title")
+        title = self. request.get("title")
         art = self.request.get("art")
         if title and art:
             a = Art(title=title, art=art)
@@ -433,12 +428,28 @@ class BlogEntry(db.Model):
              'created': self.created.strftime(time_fmt)}
         return d
 
+def home_blogposts(update=False):
+    key = 'blog-home'
+    entries = memcache.get(key)
+    blog_query_time = memcache.get('most_recent_query_time')
+    if entries is None or update:
+        blog_query_time = time.time()
+        memcache.set('most_recent_query_time', blog_query_time)
+        logging.error("BLOG DB QUERY")
+        entries = db.GqlQuery("SELECT * FROM BlogEntry ORDER BY created DESC")
+        entries = list(entries)
+        memcache.set(key, entries)
+    return entries
 
 class BlogMainPage(Handler):
     def render_blogfront(self):
-        entries = db.GqlQuery("SELECT * FROM BlogEntry ORDER BY created DESC")
+        entries = home_blogposts()
+        blog_query_time = memcache.get('most_recent_query_time')
+        if blog_query_time == None:
+            blog_query_time = 0
+        query_sec_ago = time.time()-blog_query_time
         if self.which_format() == 'html':
-            self.render('blogfront.html', {'entries':entries})
+            self.render('blogfront.html', {'entries':entries, 'query_sec_ago':query_sec_ago})
         elif self.which_format() == '.json':
             return self.jsonrender([e.entry_dict() for e in entries])
 
@@ -446,7 +457,7 @@ class BlogMainPage(Handler):
         self.render_blogfront()
 pages.append(('/blog/?(?:\.json)?', BlogMainPage))
 
-class BlogNewEntry(Handler):
+class BlogNewEntry(BlogMainPage):
     def render_blogform(self, subject="", content="", error=""):
         self.render("blogform.html", {"subjectstr":subject, 
                                       "contentstr":content, 
@@ -461,6 +472,8 @@ class BlogNewEntry(Handler):
         if subject and content:
             e = BlogEntry(subject=subject, content=content)
             e.put()
+            time.sleep(.1) #to account for delay between database put and memcache, apparently an ancestor query will also solve this delay problem
+            home_blogposts(update=True)
             e_id = e.key().id()
             self.redirect("/blog/"+str(e_id), e_id)
         else:
