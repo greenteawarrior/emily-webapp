@@ -81,6 +81,8 @@ class Handler(webapp2.RequestHandler):
         link1_label = ""
         link2_url = ""
         link2_label = ""
+        link3_url = ""
+        link3_label = ""
 
         if username == None:
             link1_url = "/login"
@@ -92,15 +94,17 @@ class Handler(webapp2.RequestHandler):
             if currentlyediting == True:
                 link1_url = "/logout"
                 link1_label = "logout"
-                link2_url = ""
-                link2_label = ""
+                link2_url = "/_history" + pagename
+                link2_label = "page history"
             elif currentlyediting == False:
                 link1_url = "/_edit" + pagename
                 link1_label = "edit"
-                link2_url = "/logout"
-                link2_label = "logout"
+                link2_url = "/_history"
+                link2_label = "history"
+                link3_url = "/logout"
+                link3_label = "logout"
 
-        return link1_url, link1_label, link2_url, link2_label
+        return link1_url, link1_label, link2_url, link2_label, link3_url, link3_label
 
 
 class User(db.Model):
@@ -231,7 +235,9 @@ class EditPage(Handler):
                                            "link1_url":links[0],
                                            "link1_label":links[1],
                                            "link2_url":links[2],
-                                           "link2_label":links[3]
+                                           "link2_label":links[3],
+                                           "link3_url":links[4],
+                                           "link3_label":links[5]
                                            })
 
     def get(self, pagename):
@@ -240,7 +246,9 @@ class EditPage(Handler):
             self.render("wiki_permission.html", {"link1_url":linkslist[0],
                                                  "link1_label":linkslist[1],
                                                  "link2_url":linkslist[2],
-                                                 "link2_label":linkslist[3]
+                                                 "link2_label":linkslist[3],
+                                                 "link3_url":linkslist[4],
+                                                 "link3_label":linkslist[5]
                                                 })
         else:
             page = get_page_from_cache(pagename)
@@ -313,7 +321,7 @@ class HistoryPage(Handler):
         if history_query_time == None:
             history_query_time = 0
         pagehistory_query_sec_ago = time.time() - history_query_time
-        if not pagehistory:
+        if not pagehistorylist:
             self.write("This page does not have any history yet. Time to write it!")
         else:
             self.render("wiki_pagehistory.html", {"pages":pagehistorylist})
@@ -325,7 +333,7 @@ class WikiPage(Handler):
         # if pagename[0:10] == '/_history/':
         #     logging.erorr("AHH!!!!!!!!")
         #     self.redirect("/_history" + pagename)
-        self.write(pagename)
+        # self.write(pagename)
         links = self.wiki_base_links(pagename=pagename)
         page = get_page_from_cache(pagename)
         query_time = memcache.get(pagename+" query_time")
@@ -339,7 +347,9 @@ class WikiPage(Handler):
                                         "link1_url":links[0],
                                         "link1_label":links[1],
                                         "link2_url":links[2],
-                                        "link2_label":links[3]
+                                        "link2_label":links[3],
+                                        "link3_url":links[4],
+                                        "link3_label":links[5]
                                        })
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)'

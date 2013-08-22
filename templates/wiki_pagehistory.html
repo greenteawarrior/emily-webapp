@@ -9,13 +9,15 @@
 
   {% for page in pages %}
   <div class="page">
-  	<b><div class="page-created">{{page.created.strftime("%b %d, %Y")}}</div></b>
-  	<br>
-  	<br>
+  	<b><div class="page-created">{{page.created.strftime("%c")}}</div></b>
     <pre class="page-content">{{page.content}}</pre>
+<!--     <a href="{{page.key().id()}}">view</a>
+    <a href="/_edit + {{page.name}}">edit</a> -->
     <br>
-    <a href="{{page.key().id()}}">view</a>
-    <a href="/_edit + {{page.name}}">edit</a>
+    <br>
+    <br>
+    <br>
+    <br>
   </div>
   {% endfor %}
   <br>
