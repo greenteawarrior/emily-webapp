@@ -9,7 +9,7 @@
 
   {% for page in pages %}
   <div class="page">
-  	<b><div class="page-created">{{page.created.strftime("%c")}}</div></b>
+  	<b><div class="page-created">{{page.created.strftime("%c")}}</div></b> by {{page.user}}
     <pre class="page-content">{{page.content}}</pre>
 <!--     <a href="{{page.key().id()}}">view</a>
     <a href="/_edit + {{page.name}}">edit</a> -->

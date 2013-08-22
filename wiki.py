@@ -13,7 +13,7 @@ import json
 import logging
 from google.appengine.api import memcache
 import time
-import utils as u4 #aka utils
+import utils as u4 
 
 jinja_environment = jinja2.Environment(autoescape=True,
     loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), 
@@ -83,6 +83,7 @@ class Handler(webapp2.RequestHandler):
         link2_label = ""
         link3_url = ""
         link3_label = ""
+        currentusername = "" #currentusername is for template rendering purposes only
 
         if username == None:
             link1_url = "/login"
@@ -96,15 +97,17 @@ class Handler(webapp2.RequestHandler):
                 link1_label = "logout"
                 link2_url = "/_history" + pagename
                 link2_label = "page history"
+                currentusername = "You are currently logged in as %s." % (str(username))
             elif currentlyediting == False:
                 link1_url = "/_edit" + pagename
                 link1_label = "edit"
-                link2_url = "/_history"
+                link2_url = "/_history" + pagename
                 link2_label = "history"
                 link3_url = "/logout"
                 link3_label = "logout"
+                currentusername = "You are currently logged in as %s." % (str(username))
 
-        return link1_url, link1_label, link2_url, link2_label, link3_url, link3_label
+        return link1_url, link1_label, link2_url, link2_label, link3_url, link3_label, currentusername, username
 
 
 class User(db.Model):
@@ -219,6 +222,7 @@ class Page(db.Model):
     name = db.StringProperty(required = True)
     content = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
+    user = db.StringProperty()
 
     def entry_dict(self):
         #this dictionary will be converted into JSON
@@ -237,7 +241,8 @@ class EditPage(Handler):
                                            "link2_url":links[2],
                                            "link2_label":links[3],
                                            "link3_url":links[4],
-                                           "link3_label":links[5]
+                                           "link3_label":links[5],
+                                           "currently": links[6]
                                            })
 
     def get(self, pagename):
@@ -248,7 +253,8 @@ class EditPage(Handler):
                                                  "link2_url":linkslist[2],
                                                  "link2_label":linkslist[3],
                                                  "link3_url":linkslist[4],
-                                                 "link3_label":linkslist[5]
+                                                 "link3_label":linkslist[5],
+                                                 "currently": links[6]
                                                 })
         else:
             page = get_page_from_cache(pagename)
@@ -263,7 +269,7 @@ class EditPage(Handler):
         content_input = self.request.get("content")
         if pagename and content_input != "":
             logging.error("Meep.")
-            p = Page(name = pagename, content=content_input)
+            p = Page(name = pagename, content=content_input, user=linkslist[7])
             p.put()
             time.sleep(.1) #to account for delay between database put and memcache, apparently an ancestor query will also solve this delay problem
             p_id = p.key().id()
@@ -349,7 +355,8 @@ class WikiPage(Handler):
                                         "link2_url":links[2],
                                         "link2_label":links[3],
                                         "link3_url":links[4],
-                                        "link3_label":links[5]
+                                        "link3_label":links[5],
+                                        "currently":links[6]
                                        })
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)'
