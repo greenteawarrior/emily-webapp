@@ -274,6 +274,7 @@ class EditPage(Handler):
             time.sleep(.1) #to account for delay between database put and memcache, apparently an ancestor query will also solve this delay problem
             p_id = p.key().id()
             memcache.delete(pagename)
+            memcache.delete(pagename+" page history")
             self.redirect(pagename)
         else:
             errorstr = "This page is hungry for content!"
