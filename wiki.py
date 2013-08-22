@@ -69,7 +69,7 @@ class Handler(webapp2.RequestHandler):
             format = 'html'
         return format
 
-    def wiki_base_links(self, currentlyediting=False):
+    def wiki_base_links(self, pagename, currentlyediting=False):
         validate_username_cookie = self.read_secure_cookie('username')
 
         try: 
@@ -91,7 +91,7 @@ class Handler(webapp2.RequestHandler):
                 link2_url = ""
                 link2_label = ""
             elif currentlyediting == False:
-                link1_url = "/edit"
+                link1_url = "/_edit" + pagename
                 link1_label = "edit"
                 link2_url = "/logout"
                 link2_label = "logout"
@@ -231,7 +231,7 @@ class EditPage(Handler):
                                            })
 
     def get(self, pagename):
-        links = self.wiki_base_links(currentlyediting=True)
+        links = self.wiki_base_links(pagename=pagename, currentlyediting=True)
         if links[1] == "login":
             self.render("wiki_permission.html", {"link1_url":links[0],
                                                  "link1_label":links[1],
@@ -244,7 +244,7 @@ class EditPage(Handler):
                 pagecontent = page.content
             except:
                 pagecontent=""
-            self.render_pageform(content=pagecontent, links=linkslist)
+            self.render_pageform(content=pagecontent, links=links)
 
     def post(self, pagename):
         content_input = self.request.get("content")
@@ -257,11 +257,11 @@ class EditPage(Handler):
             self.redirect(pagename)
         else:
             error = "This page is hungry for content!"
+            #content_input = ""
             self.render_pageform(content, error)
 
 def get_page_from_cache(pagename):
     key = str(pagename)
-
     page_contents = memcache.get(key)
     #If statement is bypassed if the page contents are 
     #already in memcache
@@ -283,7 +283,7 @@ def get_page_from_cache(pagename):
 class WikiPage(Handler):
     #future work- json compatibility code in the get function
     def get(self, pagename):
-        links = self.wiki_base_links()
+        links = self.wiki_base_links(pagename=pagename)
         page = get_page_from_cache(pagename)
         query_time = memcache.get(pagename+" query_time")
         if query_time == None:
