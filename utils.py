@@ -1,4 +1,4 @@
-# udacity
+# udacity web development
 # unit 4 functions
 
 import random
