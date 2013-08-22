@@ -331,7 +331,8 @@ class HistoryPage(Handler):
         if not pagehistorylist:
             self.write("This page does not have any history yet. Time to write it!")
         else:
-            self.render("wiki_pagehistory.html", {"pages":pagehistorylist})
+            self.render("wiki_pagehistory.html", {"pages":pagehistorylist, 
+                                                  "pagehistory_query_sec_ago":pagehistory_query_sec_ago})
         
 
 class WikiPage(Handler):
