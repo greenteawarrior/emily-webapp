@@ -5,7 +5,7 @@
         <title>emily-webapp blog</title>
     </head>
     <body>
-        <h1>emily-webapp blog</h1>
+        <h1><a href="/blog">emily-webapp blog</a></h1>
         <hr>
         <div class="entry">
             <div class="entry-subject">{{entry.subject}}</div>
@@ -13,6 +13,8 @@
             <pre class="entry-content">{{entry.content}}</div> 
             <!--preserve whitespace in the entry by using a pre element -->
         </div>
+        <br>
+<!--         <a href="{{edit_URL}}">Edit this post</a> -->
         <h6>Queried {{indiv_entry_query_sec_ago}} seconds ago</h6>
     </body>
 </html>

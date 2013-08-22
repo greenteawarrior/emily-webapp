@@ -71,6 +71,7 @@ class Handler(webapp2.RequestHandler):
             format = 'html'
         return format
 
+
 class HelloPage(Handler):
     def get(self):
         self.write("Hello, Udacity!")
@@ -255,7 +256,7 @@ class AsciiMainPage(Handler):
         if coordpoints:
             img_url = gmaps_img(coordpoints)
 
-        self.render("front.html", {"title":title, 
+        self.render("asciichan.html", {"title":title, 
                                    "art": art, 
                                    "error":error, 
                                    "arts":arts,
@@ -305,7 +306,7 @@ class UserSignUp(Handler):
         password_error = errors[1] 
         verify_error = errors[2] 
         email_error = errors[3] 
-        self.render('usersignupform.html', {"username":username,
+        self.render('blogsignupform.html', {"username":username,
                                         "password":password,
                                         "verify": verify,
                                         "email": email,
@@ -457,20 +458,22 @@ class BlogMainPage(Handler):
 pages.append(('/blog/?(?:\.json)?', BlogMainPage))
 
 class BlogNewEntry(BlogMainPage):
-    def render_blogform(self, subject="", content="", error=""):
-        self.render("blogform.html", {"subjectstr":subject, 
-                                      "contentstr":content, 
+    def render_blogform(self, p_key, subject="", content="", error=""):
+        self.render("blogform.html", {"subject":subject, 
+                                      "content":content, 
                                       "error":error})
 
-    def get(self):
+    def get(self, p_key):
         self.render_blogform()
 
     def post(self):
         subject = self.request.get("subject")
         content = self.request.get("content")
+        pagename = p_key
         if subject and content:
             e = BlogEntry(subject=subject, content=content)
             e.put()
+            k = Key.from_path('', 'pagename')
             time.sleep(.1) #to account for delay between database put and memcache, apparently an ancestor query will also solve this delay problem
             home_blogposts(update=True)
             e_id = e.key().id()
@@ -531,5 +534,11 @@ class CookieVisitPage(Handler):
         else:
             self.write("You've been here %s times!" % visits)
 pages.append(('/cookies/?', CookieVisitPage))
+
+class HomePage(Handler):
+    def get(self):
+        page_dict = {}
+        self.render('homepage.html', page_dict)
+pages.append(('/', HomePage))
 
 app = webapp2.WSGIApplication(pages, debug=True)

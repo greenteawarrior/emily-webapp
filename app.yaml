@@ -12,4 +12,4 @@ libraries:
 
 handlers:
 - url: /.*
-  script: main.app
+  script: wiki.app

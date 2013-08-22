@@ -6,10 +6,11 @@
     </head>
     <body>
         <h1>emily-webapp blog</h1>
+        <h3><a href="/blog/login">login</a></h3>
         <hr>
         {% for entry in entries %}
         <div class="entry">
-            <div class="entry-subject">{{entry.subject}}</div>
+            <a href="/blog/{{entry.key().id()}}"><div class="entry-subject">{{entry.subject}}</div></a>
             <div class="entry-created">{{entry.created.strftime("%b %d, %Y")}}</div>
             <pre class="entry-content">{{entry.content}}</div> 
             <!--preserve whitespace in the entry by using a pre element -->
