@@ -77,8 +77,12 @@ class Handler(webapp2.RequestHandler):
         except:
             username = None
 
+        link1_url = ""
+        link1_label = ""
+        link2_url = ""
+        link2_label = ""
+
         if username == None:
-            pass
             link1_url = "/login"
             link1_label = "login"
             link2_url = "/signup"
@@ -231,12 +235,12 @@ class EditPage(Handler):
                                            })
 
     def get(self, pagename):
-        links = self.wiki_base_links(pagename=pagename, currentlyediting=True)
-        if links[1] == "login":
-            self.render("wiki_permission.html", {"link1_url":links[0],
-                                                 "link1_label":links[1],
-                                                 "link2_url":links[2],
-                                                 "link2_label":links[3]
+        linkslist = self.wiki_base_links(pagename=pagename, currentlyediting=True)
+        if linkslist[1] == "login":
+            self.render("wiki_permission.html", {"link1_url":linkslist[0],
+                                                 "link1_label":linkslist[1],
+                                                 "link2_url":linkslist[2],
+                                                 "link2_label":linkslist[3]
                                                 })
         else:
             page = get_page_from_cache(pagename)
@@ -244,11 +248,13 @@ class EditPage(Handler):
                 pagecontent = page.content
             except:
                 pagecontent=""
-            self.render_pageform(content=pagecontent, links=links)
+            self.render_pageform(content=pagecontent, links=linkslist)
 
     def post(self, pagename):
+        linkslist = self.wiki_base_links(pagename=pagename, currentlyediting=True)
         content_input = self.request.get("content")
-        if pagename and content_input:
+        if pagename and content_input != "":
+            logging.error("Meep.")
             p = Page(name = pagename, content=content_input)
             p.put()
             time.sleep(.1) #to account for delay between database put and memcache, apparently an ancestor query will also solve this delay problem
@@ -256,9 +262,8 @@ class EditPage(Handler):
             memcache.delete(pagename)
             self.redirect(pagename)
         else:
-            error = "This page is hungry for content!"
-            #content_input = ""
-            self.render_pageform(content, error)
+            errorstr = "This page is hungry for content!"
+            self.render_pageform(error=errorstr, links=linkslist)
 
 def get_page_from_cache(pagename):
     key = str(pagename)
@@ -280,9 +285,47 @@ def get_page_from_cache(pagename):
         memcache.set(key, page_contents)
     return page_contents
 
+def get_page_history(pagename):
+    key = str(pagename) 
+    pagehistory = memcache.get(key + " page history")
+    #If statement is bypassed if the page history is 
+    #already in memcache
+    if pagehistory is None:
+        #for the "Queried X seconds ago" feature
+        pagehistory_query_time = time.time()
+        memcache.set(key+" history_query_time", pagehistory_query_time)
+        logging.error(key+" WIKI PAGE HISTORY QUERY")
+
+        #Database query
+        q = Page.all()
+        q.filter("name =", key).order('-created')
+        pagehistory = list(q)
+
+        #Storying the page history in memcache
+        memcache.set(key + " page history", pagehistory)
+    return pagehistory
+
+class HistoryPage(Handler):
+    def get(self, pagename):
+        links = self.wiki_base_links(pagename=pagename)
+        pagehistorylist = get_page_history(pagename)
+        history_query_time = memcache.get(pagename+" history_query_time")
+        if history_query_time == None:
+            history_query_time = 0
+        pagehistory_query_sec_ago = time.time() - history_query_time
+        if not pagehistory:
+            self.write("This page does not have any history yet. Time to write it!")
+        else:
+            self.render("wiki_pagehistory.html", {"pages":pagehistorylist})
+        
+
 class WikiPage(Handler):
     #future work- json compatibility code in the get function
     def get(self, pagename):
+        # if pagename[0:10] == '/_history/':
+        #     logging.erorr("AHH!!!!!!!!")
+        #     self.redirect("/_history" + pagename)
+        self.write(pagename)
         links = self.wiki_base_links(pagename=pagename)
         page = get_page_from_cache(pagename)
         query_time = memcache.get(pagename+" query_time")
@@ -300,12 +343,12 @@ class WikiPage(Handler):
                                        })
 
 PAGE_RE = r'(/(?:[a-zA-Z0-9_-]+/?)*)'
-
 app = webapp2.WSGIApplication([('/signup', Signup),
                                ('/welcome', UserWelcome),
                                ('/login', Login),
                                ('/logout', Logout),
                                ('/_edit' + PAGE_RE, EditPage),
+                               ('/_history' + PAGE_RE, HistoryPage),
                                (PAGE_RE, WikiPage),
                                ],
                               debug=True)

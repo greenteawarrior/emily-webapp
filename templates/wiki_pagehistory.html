@@ -1,0 +1,23 @@
+{% extends "wiki_base.html" %}
+
+{% block content %}
+
+<!-- 
+  <div style="color: red">{{edit_permission_error}}</div>  
+
+ -->
+
+  {% for page in pages %}
+  <div class="page">
+  	<b><div class="page-created">{{page.created.strftime("%b %d, %Y")}}</div></b>
+  	<br>
+  	<br>
+    <pre class="page-content">{{page.content}}</pre>
+    <br>
+    <a href="{{page.key().id()}}">view</a>
+    <a href="/_edit + {{page.name}}">edit</a>
+  </div>
+  {% endfor %}
+  <br>
+  <h6>Queried {{pagehistory_query_sec_ago}} seconds ago</h6>
+{% endblock %}
