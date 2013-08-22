@@ -5,7 +5,11 @@ emily-webapp
 
 built with the python SDK for google app engine!
 
-main.py combines exercises/webpages so all of the projects/exercises can be accessed at once when you run the devserver.
+	Currently, you can view the wiki project at http://emily-webapp.appspot.com
+
+wiki.py is the file for the wiki project. wiki.py is completely separate from main.py; only one of these scripts can be run at a time when the website is running.
+
+main.py combines exercises/webpages so all of the blog/exercises can be accessed at once when you run the devserver.
 
 /templates contains the jinga2 templates for the emily-webapp.
 
