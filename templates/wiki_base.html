@@ -2,14 +2,41 @@
 <html>
 
 <head>
-    <link type="text/css" rel="stylesheet" href="/static/blogmain.css"/>
-
     <title>emily-webapp wiki</title>
 </head>
 
+    <style type="text/css">
+    
+    body{
+        font-family: sans-serif;
+        width: 800px;
+        margin: 0 auto;
+        padding: 10px;
+    }
+
+    input[type=text] {
+        width: 400px;
+        font-size: 20px;
+        padding: 2px;
+    }
+
+    textarea{
+        width: 400px;
+        height: 200px;
+        font-size: 17px;
+        font-family: monospace;
+    }
+
+    input[type=submit]{
+        font-size: 24px;
+    }
+
+    </style>
+
+
 <body>
     <h2><a href="/" class="main-title">emily-webapp wiki</a></h2>
-
+    
     <a href="{{link1_url}}" class="link1">{{link1_label}}</a>
     <a href="{{link2_url}}" class="link2">{{link2_label}}</a>
     <a href="{{link3_url}}" class="link3">{{link3_label}}</a>

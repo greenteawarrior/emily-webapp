@@ -254,7 +254,7 @@ class EditPage(Handler):
                                                  "link2_label":linkslist[3],
                                                  "link3_url":linkslist[4],
                                                  "link3_label":linkslist[5],
-                                                 "currently": links[6]
+                                                 "currently": linkslist[6]
                                                 })
         else:
             page = get_page_from_cache(pagename)

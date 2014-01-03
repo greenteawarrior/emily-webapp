@@ -3,7 +3,7 @@ emily-webapp
 
 [udacity web development] webdev exercises and blog project 
 
-built with the python SDK for google app engine!
+Built with the python SDK for google app engine!
 
 	Currently, you can view the wiki project at http://emily-webapp.appspot.com
 
